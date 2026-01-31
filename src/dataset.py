@@ -176,20 +176,16 @@ async def Resolusion(
     frame_entity_mappings: dict[str, list],
 ) -> tuple[str, Spans, Spans]:
     async with semaphore:
-        print("1")
         prediction_frame = await Frame_Identification(sample, frames)
-        print("2")
         identification = await Argument_Identification(sample)
-        print("3")
         prediction_role = await Role_Identification(
             sample, identification, frame_entity_mappings
         )
-        print("4")
     return (prediction_frame, identification, prediction_role)
 
 
 async def main():
-    data = load_data(file_path=file_path)[:2]
+    data = load_data(file_path=file_path)
     frames = load_frames(frame_path=frame_path)
     frame_entity_mappings = load_frame_entity_mappings(frame_path=frame_path)
 
@@ -211,12 +207,13 @@ async def main():
             progress.advance(task_id=task_id, advance=1)
 
     # wirte to json
-    with open("data/submit/A_task1_test.json","w") as task1:
-        json.dump(prediction_frame_list,task1)
-    with open("data/submit/A_task2_test.json","w") as task2:
-        json.dump(prediction_frame_list,task2)
-    with open("data/submit/A_task3_test.json","w") as task3:
-        json.dump(prediction_frame_list,task3)
+    with open("data/submit/A_task1_test.json", "w") as task1:
+        json.dump(prediction_frame_list, task1)
+    with open("data/submit/A_task2_test.json", "w") as task2:
+        json.dump(prediction_frame_list, task2)
+    with open("data/submit/A_task3_test.json", "w") as task3:
+        json.dump(prediction_frame_list, task3)
+
 
 # result is list of tuple
 
