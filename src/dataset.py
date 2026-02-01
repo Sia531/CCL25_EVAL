@@ -92,11 +92,20 @@ def load_frame_entity_mappings(frame_path: Path) -> dict[str, list]:
     return mappings
 
 
-@retry
-async def Frame_Identification(sample: Sample, frames: list[str]) -> str:
+async def call_llm(messages: list[dict]) -> str:
     response = await client.chat.completions.create(
         model=os.environ.get("MODEL_NAME"),
-        messages=[
+        messages=messages,
+        timeout=360,
+        extra_body={"enable_thinking": True},
+    )
+    return response.choices[0].message.content
+
+
+@retry
+async def Frame_Identification(sample: Sample, frames: list[str]) -> str:
+    text = await call_llm(
+        [
             {
                 "role": "user",
                 "content": FRAME_PROMPT.format(
@@ -106,10 +115,8 @@ async def Frame_Identification(sample: Sample, frames: list[str]) -> str:
                     frames=frames,
                 ),
             }
-        ],
-        timeout=360,
+        ]
     )
-    text = response.choices[0].message.content
     pattern = r"\\boxed\{([^}]+)\}"
     match = re.search(pattern, text)
     result = match.group(1)
@@ -119,9 +126,8 @@ async def Frame_Identification(sample: Sample, frames: list[str]) -> str:
 
 @retry
 async def Argument_Identification(sample: Sample) -> Spans:
-    response = await client.chat.completions.create(
-        model=os.environ.get("MODEL_NAME"),
-        messages=[
+    text = await call_llm(
+        [
             {
                 "role": "user",
                 "content": ARGUMENT_PROMPT.format(
@@ -133,9 +139,7 @@ async def Argument_Identification(sample: Sample) -> Spans:
                 + f"允许思考，最终输出的Schema为{SpansModel.model_json_schema()}，按照这个输出对应的JSON，不要有其他内容",
             }
         ],
-        timeout=360,
     )
-    text = response.choices[0].message.content
     spans = SpansModel.model_validate_json(text)
     for item in spans.content:
         item.insert(0, sample.data_id)
@@ -146,9 +150,8 @@ async def Argument_Identification(sample: Sample) -> Spans:
 async def Role_Identification(
     sample: Sample, argument: Spans, frame_entity_mappings: dict[str, list]
 ) -> Spans:
-    response = await client.chat.completions.create(
-        model=os.environ.get("MODEL_NAME"),
-        messages=[
+    text = await call_llm(
+        [
             {
                 "role": "user",
                 "content": ROLE_PROMPT.format(
@@ -161,9 +164,7 @@ async def Role_Identification(
                 ),
             }
         ],
-        timeout=360,
     )
-    text = response.choices[0].message.content
     result = json.loads(text)
     for idx, item in enumerate(argument):
         item.append(result[idx])
