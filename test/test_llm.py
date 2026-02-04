@@ -12,6 +12,7 @@ client = OpenAI(
 response = client.chat.completions.create(
     model=os.environ.get("MODEL_NAME"),
     messages=[{"role": "user", "content": "你好，你是谁"}],
+    extra_body={"enable_thinking": True},
 )
 
 print(response.choices[0].message)
@@ -20,6 +21,7 @@ response = client.chat.completions.create(
     model=os.environ.get("MODEL_NAME"),
     messages=[{"role": "system", "content": "刚才用户问了你你是谁"}]
     + [{"role": "user", "content": "我知道了"}],
+    extra_body={"enable_thinking": True},
 )
 
 print(response.choices[0].message)

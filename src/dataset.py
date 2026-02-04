@@ -1,10 +1,11 @@
 import asyncio
+import copy
 import json
 import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, cast
 
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
@@ -21,7 +22,7 @@ client = AsyncOpenAI(
 )
 semaphore = asyncio.Semaphore(4)
 
-file_path = Path("./data/cfn-dataset/cfn-train.json")
+file_path = Path("./data/cfn-dataset/cfn-test-A.json")
 frame_path = Path("./data/cfn-dataset/frame_info.json")
 
 assert file_path.exists(), f"{file_path} not exist!"
@@ -97,7 +98,7 @@ async def call_llm(messages: list[dict]) -> str:
         model=os.environ.get("MODEL_NAME"),
         messages=messages,
         timeout=360,
-        extra_body={"enable_thinking": True},
+        extra_body={"enable_thinking": False},
     )
     return response.choices[0].message.content
 
@@ -136,11 +137,12 @@ async def Argument_Identification(sample: Sample) -> Spans:
                     word=sample.word,
                     pos=sample.pos,
                 )
-                + f"允许思考，最终输出的Schema为{SpansModel.model_json_schema()}，按照这个输出对应的JSON，不要有其他内容",
+                + f"允许思考，最终输出的Schema为{SpansModel.model_json_schema()}，按照这个输出对应的JSON，并将其放在 <answer> 和</answer>中，不要有其他解释",
             }
         ],
     )
-    spans = SpansModel.model_validate_json(text)
+    match = re.search(r"<answer>\s*(.*?)\s*</answer>", text, flags=re.S | re.I)
+    spans = SpansModel.model_validate_json(match.group(1))
     for item in spans.content:
         item.insert(0, sample.data_id)
     return spans.content
@@ -165,24 +167,31 @@ async def Role_Identification(
             }
         ],
     )
-    result = json.loads(text)
+    match = re.search(r"<answer>\s*(.*?)\s*</answer>", text, flags=re.S | re.I)
+    result = json.loads(match.group(1))
     for idx, item in enumerate(argument):
         item.append(result[idx])
     return argument
 
 
 async def Resolusion(
+    index: int,
     sample: Sample,
     frames: list[str],
     frame_entity_mappings: dict[str, list],
-) -> tuple[str, Spans, Spans]:
+) -> tuple[int, str, Spans, Spans]:
     async with semaphore:
         prediction_frame = await Frame_Identification(sample, frames)
         identification = await Argument_Identification(sample)
         prediction_role = await Role_Identification(
-            sample, identification, frame_entity_mappings
+            sample, copy.deepcopy(identification), frame_entity_mappings
         )
-    return (prediction_frame, identification, prediction_role)
+    return (
+        index,
+        (sample.data_id, prediction_frame),
+        identification,
+        prediction_role,
+    )
 
 
 async def main():
@@ -190,30 +199,45 @@ async def main():
     frames = load_frames(frame_path=frame_path)
     frame_entity_mappings = load_frame_entity_mappings(frame_path=frame_path)
 
-    prediction_frame_list = []
-    argument_identification_list = []
-    role_identification_list = []
+    prediction_frame_list = [None] * len(data)
+    argument_identification_list = [None] * len(data)
+    role_identification_list = [None] * len(data)
+
     tasks = []
     with Progress() as progress:
         task_id = progress.add_task("Task", total=len(data))
-        for sample in data:
+        for index, sample in enumerate(data):
             tasks.append(
-                asyncio.create_task(Resolusion(sample, frames, frame_entity_mappings))
+                asyncio.create_task(
+                    Resolusion(index, sample, frames, frame_entity_mappings)
+                )
             )
-        for future in asyncio.as_completed(tasks):
-            result: tuple[str, Spans, Spans] = await future
-            prediction_frame_list.append(result[0])
-            argument_identification_list.append(result[1])
-            role_identification_list.append(result[2])
-            progress.advance(task_id=task_id, advance=1)
+
+            for future in asyncio.as_completed(tasks):
+                result = cast(tuple[int, (int, str), Spans, Spans], await future)
+                index = result[0]
+                prediction_frame_list[index] = result[1]
+                argument_identification_list[index] = result[2]
+                role_identification_list[index] = result[3]
+                progress.advance(task_id=task_id, advance=1)
+
+    task2_res = []
+    # arg : [ [[1,x,x],[1,x,x]],[[2,x,x],[2,x,x]]  ]
+    # dump list[list[Span]] -> list[Span]
+    for item in argument_identification_list:
+        task2_res.extend(item)
+
+    task3_res = []
+    for item in role_identification_list:
+        task3_res.extend(item)
 
     # wirte to json
     with open("data/submit/A_task1_test.json", "w") as task1:
         json.dump(prediction_frame_list, task1)
     with open("data/submit/A_task2_test.json", "w") as task2:
-        json.dump(prediction_frame_list, task2)
+        json.dump(task2_res, task2)
     with open("data/submit/A_task3_test.json", "w") as task3:
-        json.dump(prediction_frame_list, task3)
+        json.dump(task3_res, task3)
 
 
 # result is list of tuple
