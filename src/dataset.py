@@ -204,8 +204,8 @@ async def Argument_Identification(sample: Sample) -> Spans:
     if not match:
         raise ValueError("No <answer> block found")
 
-    spans = SpansModel.model_validate_json(match.group(1))
-
+    spans = json.loads(match.group(1))
+    spans = SpansModel(content=spans)
     for item in spans.content:
         item.insert(0, sample.data_id)
 

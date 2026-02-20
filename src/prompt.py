@@ -18,7 +18,7 @@ ARGUMENT_PROMPT = (
     "不要输出论元角色名称，也不要输出解释。"
     "题目：给定句子：{text}。"
     "目标词为“{word}”，词性为“{pos}”，其触发的语义框架为“{prediction_frame}”。"
-    '样例输出：<answer>{"content": [[62, 71], [58, 71], [62, 65]]}</answer>'
+    "样例输出：<answer>[[62, 71], [58, 71], [62, 65]]</answer>"
 )
 
 ROLE_PROMPT = (
