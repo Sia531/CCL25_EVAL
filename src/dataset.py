@@ -174,6 +174,8 @@ async def Frame_Identification(sample: Sample, frames: list[str]) -> str:
         raise ValueError("No boxed result found")
 
     result = match.group(1)
+    if result not in frames:
+        raise ValueError("Invalid frame")
     sample.prediction_frame = result
 
     logger.info(f"[cyan]FRAME[/] {sample.data_id} → {result}")
@@ -241,6 +243,9 @@ async def Role_Identification(
         raise ValueError("No role answer block")
 
     result = json.loads(match.group(1))
+    for item in result:
+        if item not in frame_entity_mappings[sample.prediction_frame]:
+            raise ValueError("Invalid role")
 
     for idx, item in enumerate(argument):
         item.append(result[idx])
