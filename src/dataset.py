@@ -97,7 +97,7 @@ async def call_llm(messages: list[dict]) -> str:
 
     cost = time.perf_counter() - start
     logger.debug(f"[dim]LLM cost: {cost:.2f}s[/]")
-
+    logger.debug(f"[dim]LLM response: {response.choices[0].message.content}[/]")
     return response.choices[0].message.content
 
 
