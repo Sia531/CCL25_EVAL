@@ -193,9 +193,7 @@ async def Argument_Identification(sample: Sample) -> Spans:
                     prediction_frame=sample.prediction_frame,
                     word=sample.word,
                     pos=sample.pos,
-                )
-                + f"允许思考，最终输出Schema为{SpansModel.model_json_schema()}，"
-                "输出JSON并放入<answer></answer>中",
+                ),
             }
         ]
     )
