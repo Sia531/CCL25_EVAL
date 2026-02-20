@@ -151,7 +151,7 @@ def load_frame_entity_mappings(frame_path: Path) -> dict[str, list]:
 # =======================
 
 
-@retry(before_sleep=before_sleep_log(logger, logging.WARNING))
+@retry(before_sleep=before_sleep_log(logger, logging.WARNING), stop=3)
 async def Frame_Identification(sample: Sample, frames: list[str]) -> str:
     logger.info(f"[bold cyan]FRAME[/] {sample.data_id} start")
 
@@ -182,7 +182,7 @@ async def Frame_Identification(sample: Sample, frames: list[str]) -> str:
     return result
 
 
-@retry(before_sleep=before_sleep_log(logger, logging.WARNING))
+@retry(before_sleep=before_sleep_log(logger, logging.WARNING), stop=3)
 async def Argument_Identification(sample: Sample) -> Spans:
     logger.info(f"[bold yellow]ARG[/] {sample.data_id} start")
 
@@ -214,7 +214,7 @@ async def Argument_Identification(sample: Sample) -> Spans:
     return spans.content
 
 
-@retry(before_sleep=before_sleep_log(logger, logging.WARNING))
+@retry(before_sleep=before_sleep_log(logger, logging.WARNING), stop=3)
 async def Role_Identification(
     sample: Sample,
     argument: Spans,
@@ -260,6 +260,7 @@ async def Role_Identification(
 # =======================
 
 
+@retry(before_sleep=before_sleep_log(logger, logging.WARNING))
 async def Resolusion(
     index: int,
     sample: Sample,
